@@ -10,12 +10,24 @@ use Laravel\Ai\Responses\Data\Usage;
 
 class TextResponse
 {
+    /**
+     * @var Collection<int, \Laravel\Ai\Messages\Message>
+     */
     public Collection $messages;
 
+    /**
+     * @var Collection<int, \Laravel\Ai\Responses\Data\ToolCall>
+     */
     public Collection $toolCalls;
 
+    /**
+     * @var Collection<int, \Laravel\Ai\Responses\Data\ToolResult>
+     */
     public Collection $toolResults;
 
+    /**
+     * @var Collection<int, \Laravel\Ai\Responses\Data\Step>
+     */
     public Collection $steps;
 
     public function __construct(public string $text, public Usage $usage, public Meta $meta)
@@ -28,6 +40,8 @@ class TextResponse
 
     /**
      * Provide the message context for the response.
+     *
+     * @param  Collection<int, \Laravel\Ai\Messages\Message>  $messages
      */
     public function withMessages(Collection $messages): self
     {
@@ -49,6 +63,9 @@ class TextResponse
 
     /**
      * Provide the tool calls and results for the message.
+     *
+     * @param  Collection<int, \Laravel\Ai\Responses\Data\ToolCall>  $toolCalls
+     * @param  Collection<int, \Laravel\Ai\Responses\Data\ToolResult>  $toolResults
      */
     public function withToolCallsAndResults(Collection $toolCalls, Collection $toolResults): self
     {
@@ -64,6 +81,8 @@ class TextResponse
 
     /**
      * Provide the steps taken to generate the response.
+     *
+     * @param  Collection<int, \Laravel\Ai\Responses\Data\Step>  $steps
      */
     public function withSteps(Collection $steps): self
     {
