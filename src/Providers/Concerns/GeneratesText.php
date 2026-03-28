@@ -12,12 +12,17 @@ use Laravel\Ai\Contracts\Conversational;
 use Laravel\Ai\Contracts\ConversationStore;
 use Laravel\Ai\Contracts\HasMiddleware;
 use Laravel\Ai\Contracts\HasStructuredOutput;
+use Laravel\Ai\Contracts\HasMcpServers;
 use Laravel\Ai\Contracts\HasTools;
 use Laravel\Ai\Contracts\Tool;
 use Laravel\Ai\Events\AgentPrompted;
+use Laravel\Ai\Events\InvokingMcpTool;
 use Laravel\Ai\Events\InvokingTool;
+use Laravel\Ai\Events\McpToolInvoked;
 use Laravel\Ai\Events\PromptingAgent;
 use Laravel\Ai\Events\ToolInvoked;
+use Laravel\Ai\Mcp\McpManager;
+use Laravel\Ai\Mcp\McpServer;
 use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Messages\UserMessage;
 use Laravel\Ai\Middleware\RememberConversation;
@@ -54,7 +59,12 @@ trait GeneratesText
 
                 $messages[] = new UserMessage($prompt->prompt, $prompt->attachments->all());
 
+                $mcpServers = $agent instanceof HasMcpServers && filled($agent->mcpServers())
+                    ? resolve(McpManager::class)->resolveAll($agent->mcpServers())
+                    : [];
+
                 $this->listenForToolInvocations($invocationId, $agent);
+                $this->listenForMcpToolInvocations($invocationId, $agent);
 
                 $response = $this->textGateway()->generateText(
                     $this,
@@ -62,6 +72,7 @@ trait GeneratesText
                     (string) $agent->instructions(),
                     $messages,
                     $agent instanceof HasTools ? $agent->tools() : [],
+                    $mcpServers,
                     $agent instanceof HasStructuredOutput ? $agent->schema(new JsonSchemaTypeFactory) : null,
                     TextGenerationOptions::forAgent($agent),
                     $prompt->timeout,
@@ -121,6 +132,27 @@ trait GeneratesText
             invoked: function (Tool $tool, array $arguments, mixed $result) use ($invocationId, $agent) {
                 $this->events->dispatch(new ToolInvoked(
                     $invocationId, $this->currentToolInvocationId, $agent, $tool, $arguments, $result
+                ));
+            },
+        );
+    }
+
+    /**
+     * Listen for gateway MCP tool invocations and dispatch events for the given agent.
+     */
+    protected function listenForMcpToolInvocations(string $invocationId, Agent $agent): void
+    {
+        $this->textGateway()->onMcpToolInvocation(
+            invoking: function (McpServer $server, string $toolName, array $arguments) use ($invocationId, $agent) {
+                $this->currentToolInvocationId = (string) Str::uuid7();
+
+                $this->events->dispatch(new InvokingMcpTool(
+                    $invocationId, $this->currentToolInvocationId, $agent, $server, $toolName, $arguments
+                ));
+            },
+            invoked: function (McpServer $server, string $toolName, array $arguments, mixed $result) use ($invocationId, $agent) {
+                $this->events->dispatch(new McpToolInvoked(
+                    $invocationId, $this->currentToolInvocationId, $agent, $server, $toolName, $arguments, $result
                 ));
             },
         );

@@ -18,6 +18,7 @@ interface TextGateway
      *
      * @param  Message[]  $messages
      * @param  Tool[]  $tools
+     * @param  \Laravel\Ai\Mcp\McpServer[]  $mcpServers
      * @param  array<string, Type>|null  $schema
      */
     public function generateText(
@@ -26,6 +27,7 @@ interface TextGateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
@@ -36,6 +38,7 @@ interface TextGateway
      *
      * @param  Message[]  $messages
      * @param  Tool[]  $tools
+     * @param  \Laravel\Ai\Mcp\McpServer[]  $mcpServers
      * @param  array<string, Type>|null  $schema
      */
     public function streamText(
@@ -45,6 +48,7 @@ interface TextGateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
@@ -54,4 +58,9 @@ interface TextGateway
      * Specify callbacks that should be invoked when tools are invoking / invoked.
      */
     public function onToolInvocation(Closure $invoking, Closure $invoked): self;
+
+    /**
+     * Specify callbacks that should be invoked when MCP tools are invoking / invoked.
+     */
+    public function onMcpToolInvocation(Closure $invoking, Closure $invoked): self;
 }

@@ -18,7 +18,9 @@ use Laravel\Ai\Files\File;
 use Laravel\Ai\Files\LocalImage;
 use Laravel\Ai\Files\StoredImage;
 use Laravel\Ai\Gateway\Concerns\HandlesRateLimiting;
+use Laravel\Ai\Gateway\Concerns\InvokesMcpTools;
 use Laravel\Ai\Gateway\Concerns\InvokesTools;
+use Laravel\Ai\Gateway\Concerns\MapsMcpTools;
 use Laravel\Ai\Gateway\Concerns\ParsesServerSentEvents;
 use Laravel\Ai\Gateway\TextGenerationOptions;
 use Laravel\Ai\Responses\AudioResponse;
@@ -42,11 +44,14 @@ class OpenAiGateway implements Gateway
     use Concerns\ParsesTextResponses;
     use HandlesRateLimiting;
     use InvokesTools;
+    use InvokesMcpTools;
+    use MapsMcpTools;
     use ParsesServerSentEvents;
 
     public function __construct(protected Dispatcher $events)
     {
         $this->initializeToolCallbacks();
+        $this->initializeMcpToolCallbacks();
     }
 
     /**
@@ -58,12 +63,13 @@ class OpenAiGateway implements Gateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
     ): TextResponse {
         $body = $this->buildTextRequestBody(
-            $provider, $model, $instructions, $messages, $tools, $schema, $options,
+            $provider, $model, $instructions, $messages, $tools, $mcpServers, $schema, $options,
         );
 
         $response = $this->withRateLimitHandling(
@@ -75,7 +81,7 @@ class OpenAiGateway implements Gateway
 
         $this->validateTextResponse($data);
 
-        return $this->parseTextResponse($data, $provider, filled($schema), $tools, $schema, $options);
+        return $this->parseTextResponse($data, $provider, filled($schema), $tools, $mcpServers, $schema, $options);
     }
 
     /**
@@ -88,12 +94,13 @@ class OpenAiGateway implements Gateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
     ): Generator {
         $body = $this->buildTextRequestBody(
-            $provider, $model, $instructions, $messages, $tools, $schema, $options,
+            $provider, $model, $instructions, $messages, $tools, $mcpServers, $schema, $options,
         );
 
         $body['stream'] = true;
@@ -106,7 +113,7 @@ class OpenAiGateway implements Gateway
         );
 
         yield from $this->processTextStream(
-            $invocationId, $provider, $model, $tools, $schema, $options,
+            $invocationId, $provider, $model, $tools, $mcpServers, $schema, $options,
             $response->getBody(),
         );
     }

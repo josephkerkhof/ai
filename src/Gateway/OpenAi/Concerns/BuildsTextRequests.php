@@ -18,6 +18,7 @@ trait BuildsTextRequests
         ?string $instructions,
         array $messages,
         array $tools,
+        array $mcpServers,
         ?array $schema,
         ?TextGenerationOptions $options,
     ): array {
@@ -25,9 +26,12 @@ trait BuildsTextRequests
 
         $body = ['model' => $model, 'input' => $input];
 
-        if (filled($tools)) {
+        if (filled($tools) || filled($mcpServers)) {
             $body['tool_choice'] = 'auto';
-            $body['tools'] = $this->mapTools($tools, $provider);
+            $body['tools'] = [
+                ...$this->mapTools($tools, $provider),
+                ...$this->mapMcpTools($mcpServers),
+            ];
         }
 
         if (filled($schema)) {

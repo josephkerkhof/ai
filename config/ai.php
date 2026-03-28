@@ -49,6 +49,46 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | MCP Servers
+    |--------------------------------------------------------------------------
+    |
+    | Below you may define MCP (Model Context Protocol) servers that agents
+    | can connect to for additional tool capabilities. Each server uses
+    | either a stdio or HTTP transport to communicate with MCP servers.
+    |
+    */
+
+    'mcp' => [
+        'servers' => [
+            // 'filesystem' => [
+            //     'transport' => 'stdio',
+            //     'command' => ['npx', '-y', '@modelcontextprotocol/server-filesystem', '/home/user/projects'],
+            //     'timeout' => 30,
+            // ],
+            // 'example-http' => [
+            //     'transport' => 'http',
+            //     'url' => env('MCP_EXAMPLE_URL'),
+            //     'headers' => [
+            //         'Authorization' => 'Bearer ' . env('MCP_EXAMPLE_TOKEN'),
+            //     ],
+            //     'timeout' => 30,
+            // ],
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | AI Providers
+    |--------------------------------------------------------------------------
+    |
+    | Below are each of your AI providers defined for this application. Each
+    | represents an AI provider and API key combination which can be used
+    | to perform tasks like text, image, and audio creation via agents.
+    |
+    */
+
     'providers' => [
         'anthropic' => [
             'driver' => 'anthropic',

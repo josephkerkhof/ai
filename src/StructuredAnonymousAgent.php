@@ -16,7 +16,10 @@ class StructuredAnonymousAgent extends AnonymousAgent implements HasStructuredOu
         public iterable $messages,
         public iterable $tools,
         Closure $schema,
+        array $mcpServers = [],
     ) {
+        parent::__construct($instructions, $messages, $tools, $mcpServers);
+
         $this->schema = new SerializableClosure($schema);
     }
 

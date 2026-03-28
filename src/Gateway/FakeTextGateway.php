@@ -46,6 +46,7 @@ class FakeTextGateway implements TextGateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
@@ -71,6 +72,7 @@ class FakeTextGateway implements TextGateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
@@ -166,6 +168,14 @@ class FakeTextGateway implements TextGateway
      * Specify callbacks that should be invoked when tools are invoking / invoked.
      */
     public function onToolInvocation(Closure $invoking, Closure $invoked): self
+    {
+        return $this;
+    }
+
+    /**
+     * Specify callbacks that should be invoked when MCP tools are invoking / invoked.
+     */
+    public function onMcpToolInvocation(Closure $invoking, Closure $invoked): self
     {
         return $this;
     }

@@ -39,6 +39,7 @@ use Prism\Prism\ValueObjects\Media\Image as PrismImage;
 
 class PrismGateway implements Gateway
 {
+    use Concerns\AddsMcpToolsToPrismRequests;
     use Concerns\AddsToolsToPrismRequests;
     use Concerns\CreatesPrismTextRequests;
 
@@ -46,10 +47,16 @@ class PrismGateway implements Gateway
 
     protected $toolInvokedCallback;
 
+    protected $invokingMcpToolCallback;
+
+    protected $mcpToolInvokedCallback;
+
     public function __construct(protected Dispatcher $events)
     {
         $this->invokingToolCallback = fn () => true;
         $this->toolInvokedCallback = fn () => true;
+        $this->invokingMcpToolCallback = fn () => true;
+        $this->mcpToolInvokedCallback = fn () => true;
     }
 
     /**
@@ -61,6 +68,7 @@ class PrismGateway implements Gateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
@@ -74,9 +82,10 @@ class PrismGateway implements Gateway
             $request->withSystemPrompt($instructions);
         }
 
-        if (count($tools) > 0) {
+        if (count($tools) > 0 || count($mcpServers) > 0) {
             $this->addTools($request, $tools, $options);
             $this->addProviderTools($provider, $request, $tools);
+            $this->addMcpTools($request, $mcpServers);
         }
 
         $prismMessages = $this->toPrismMessages($messages);
@@ -122,6 +131,7 @@ class PrismGateway implements Gateway
         ?string $instructions,
         array $messages = [],
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
         ?int $timeout = null,
@@ -135,9 +145,10 @@ class PrismGateway implements Gateway
             $request->withSystemPrompt($instructions);
         }
 
-        if (count($tools) > 0) {
+        if (count($tools) > 0 || count($mcpServers) > 0) {
             $this->addTools($request, $tools, $options);
             $this->addProviderTools($provider, $request, $tools);
+            $this->addMcpTools($request, $mcpServers);
         }
 
         try {
@@ -404,6 +415,17 @@ class PrismGateway implements Gateway
     {
         $this->invokingToolCallback = $invoking;
         $this->toolInvokedCallback = $invoked;
+
+        return $this;
+    }
+
+    /**
+     * Specify callbacks that should be invoked when MCP tools are invoking / invoked.
+     */
+    public function onMcpToolInvocation(Closure $invoking, Closure $invoked): self
+    {
+        $this->invokingMcpToolCallback = $invoking;
+        $this->mcpToolInvokedCallback = $invoked;
 
         return $this;
     }

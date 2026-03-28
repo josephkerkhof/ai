@@ -55,6 +55,7 @@ trait ParsesTextResponses
         Provider $provider,
         bool $structured,
         array $tools = [],
+        array $mcpServers = [],
         ?array $schema = null,
         ?TextGenerationOptions $options = null,
     ): TextResponse {
@@ -63,6 +64,7 @@ trait ParsesTextResponses
             $provider,
             $structured,
             $tools,
+            $mcpServers,
             $schema,
             new Collection,
             new Collection,
@@ -78,6 +80,7 @@ trait ParsesTextResponses
         Provider $provider,
         bool $structured,
         array $tools,
+        array $mcpServers,
         ?array $schema,
         Collection $steps,
         Collection $messages,
@@ -117,8 +120,8 @@ trait ParsesTextResponses
         // Execute tool calls...
         if ($finishReason === FinishReason::ToolCalls &&
             filled($mappedToolCalls) &&
-            $steps->count() < ($maxSteps ?? count($tools) * 2)) {
-            $toolResults = $this->executeToolCalls($mappedToolCalls, $tools);
+            $steps->count() < ($maxSteps ?? (count($tools) + count($mcpServers)) * 2)) {
+            $toolResults = $this->executeToolCalls($mappedToolCalls, $tools, $mcpServers);
 
             // Update step with tool results...
             $steps->pop();
@@ -137,7 +140,7 @@ trait ParsesTextResponses
             $messages->push($toolResultMessage);
 
             return $this->continueWithToolResults(
-                $responseId, $model, $provider, $structured, $tools, $schema, $steps, $messages, $toolResults, $depth + 1, $maxSteps,
+                $responseId, $model, $provider, $structured, $tools, $mcpServers, $schema, $steps, $messages, $toolResults, $depth + 1, $maxSteps,
             );
         }
 
@@ -173,18 +176,26 @@ trait ParsesTextResponses
      * @param  array<Tool>  $tools
      * @return array<ToolResult>
      */
-    protected function executeToolCalls(array $toolCalls, array $tools): array
+    protected function executeToolCalls(array $toolCalls, array $tools, array $mcpServers = []): array
     {
         $results = [];
 
         foreach ($toolCalls as $toolCall) {
             $tool = $this->findTool($toolCall->name, $tools);
 
-            if ($tool === null) {
-                continue;
-            }
+            if ($tool !== null) {
+                $result = $this->executeTool($tool, $toolCall->arguments);
+            } else {
+                $mcpMatch = $this->findMcpTool($toolCall->name, $mcpServers);
 
-            $result = $this->executeTool($tool, $toolCall->arguments);
+                if ($mcpMatch === null) {
+                    continue;
+                }
+
+                [$server, $mcpTool] = $mcpMatch;
+
+                $result = $this->executeMcpTool($server, $mcpTool->name, $toolCall->arguments);
+            }
 
             $results[] = new ToolResult(
                 $toolCall->id,
@@ -207,6 +218,7 @@ trait ParsesTextResponses
         Provider $provider,
         bool $structured,
         array $tools,
+        array $mcpServers,
         ?array $schema,
         Collection $steps,
         Collection $messages,
@@ -220,8 +232,11 @@ trait ParsesTextResponses
             'input' => $this->buildToolResultsInput($toolResults),
         ];
 
-        if (filled($tools)) {
-            $body['tools'] = $this->mapTools($tools, $provider);
+        if (filled($tools) || filled($mcpServers)) {
+            $body['tools'] = [
+                ...$this->mapTools($tools, $provider),
+                ...$this->mapMcpTools($mcpServers),
+            ];
         }
 
         if (filled($schema)) {
@@ -237,7 +252,7 @@ trait ParsesTextResponses
 
         $this->validateTextResponse($data);
 
-        return $this->processResponse($data, $provider, $structured, $tools, $schema, $steps, $messages, $depth, $maxSteps);
+        return $this->processResponse($data, $provider, $structured, $tools, $mcpServers, $schema, $steps, $messages, $depth, $maxSteps);
     }
 
     /**

@@ -32,6 +32,7 @@ trait HandlesTextStreaming
         Provider $provider,
         string $model,
         array $tools,
+        array $mcpServers,
         ?array $schema,
         ?TextGenerationOptions $options,
         $streamBody,
@@ -279,7 +280,7 @@ trait HandlesTextStreaming
 
         if (filled($pendingToolCalls)) {
             yield from $this->handleStreamingToolCalls(
-                $invocationId, $responseId, $provider, $model, $tools, $schema, $options,
+                $invocationId, $responseId, $provider, $model, $tools, $mcpServers, $schema, $options,
                 $pendingToolCalls, $currentText, $reasoningItems,
                 $depth, $maxSteps,
             );
@@ -304,6 +305,7 @@ trait HandlesTextStreaming
         Provider $provider,
         string $model,
         array $tools,
+        array $mcpServers,
         ?array $schema,
         ?TextGenerationOptions $options,
         array $pendingToolCalls,
@@ -319,11 +321,19 @@ trait HandlesTextStreaming
         foreach ($mappedToolCalls as $toolCall) {
             $tool = $this->findTool($toolCall->name, $tools);
 
-            if ($tool === null) {
-                continue;
-            }
+            if ($tool !== null) {
+                $result = $this->executeTool($tool, $toolCall->arguments);
+            } else {
+                $mcpMatch = $this->findMcpTool($toolCall->name, $mcpServers);
 
-            $result = $this->executeTool($tool, $toolCall->arguments);
+                if ($mcpMatch === null) {
+                    continue;
+                }
+
+                [$server, $mcpTool] = $mcpMatch;
+
+                $result = $this->executeMcpTool($server, $mcpTool->name, $toolCall->arguments);
+            }
 
             $toolResult = new ToolResult(
                 $toolCall->id,
@@ -344,7 +354,7 @@ trait HandlesTextStreaming
             ))->withInvocationId($invocationId);
         }
 
-        if ($depth + 1 < ($maxSteps ?? count($tools) * 2)) {
+        if ($depth + 1 < ($maxSteps ?? (count($tools) + count($mcpServers)) * 2)) {
             $body = [
                 'model' => $model,
                 'previous_response_id' => $responseId,
@@ -352,8 +362,11 @@ trait HandlesTextStreaming
                 'stream' => true,
             ];
 
-            if (filled($tools)) {
-                $body['tools'] = $this->mapTools($tools, $provider);
+            if (filled($tools) || filled($mcpServers)) {
+                $body['tools'] = [
+                    ...$this->mapTools($tools, $provider),
+                    ...$this->mapMcpTools($mcpServers),
+                ];
             }
 
             if (filled($schema)) {
@@ -368,7 +381,7 @@ trait HandlesTextStreaming
             );
 
             yield from $this->processTextStream(
-                $invocationId, $provider, $model, $tools, $schema, $options,
+                $invocationId, $provider, $model, $tools, $mcpServers, $schema, $options,
                 $response->getBody(), $depth + 1, $maxSteps,
             );
         } else {
