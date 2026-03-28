@@ -43,9 +43,9 @@ class StdioTransport implements McpTransport
         }
 
         $descriptors = [
-            0 => ['pipe', 'r'], // stdin
-            1 => ['pipe', 'r'], // stdout
-            2 => ['pipe', 'r'], // stderr (captured but not used)
+            0 => ['pipe', 'r'], // stdin (child reads, parent writes)
+            1 => ['pipe', 'w'], // stdout (child writes, parent reads)
+            2 => ['pipe', 'w'], // stderr (child writes, parent reads)
         ];
 
         $env = filled($this->env)
